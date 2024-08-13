@@ -42,6 +42,12 @@
     cursor: pointer;
 }
 
+.profile label img{
+    width: 50px;
+    aspect-ratio: 1/1;
+    border-radius: 50%;
+}
+
 .profile input,textarea{
     padding: 10px;
     min-width: 300px;
