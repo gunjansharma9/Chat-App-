@@ -2,7 +2,7 @@ import React, { useContext, useState } from 'react'
 import "./LeftSidebar.css"
 import assets from '../../assets/assets'
 import { useNavigate } from 'react-router-dom'
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { arrayUnion, collection, doc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore'
 import { db } from '../../config/firebase'
 import { AppContext } from '../../context/AppContext'
 
@@ -32,6 +32,41 @@ const LeftSidebar = () => {
             console.error(error);
         }
     }
+
+    const addChat = async() => {
+        const messagesRef = collection(db,"messages");
+        const chatsRef = collection(db,"chats");
+        try{
+            const newMessageRef = doc(messagesRef);
+            await setDoc(newMessageRef,{
+                createAt:serverTimestamp(),
+                messages:[]
+            })
+
+            await updateDoc(doc(chatsRef,user.id),{
+                chatsData:arrayUnion({
+                    messageId:newMessageRef.id,
+                    lastMessage:"",
+                    rId:userData.id,
+                    updatedAt:Date.now(),
+                    messageSeen:true
+                })
+            })
+
+            await updateDoc(doc(chatsRef,userData.id),{
+                chatsData:arrayUnion({
+                    messageId:newMessageRef.id,
+                    lastMessage:"",
+                    rId:user.id,
+                    updatedAt:Date.now(),
+                    messageSeen:true
+                })
+            })
+        }catch(error){
+            toast.error(error.message);
+            console.error(error);
+        }
+    }
   return (
     <div className='ls'>
         <div className="ls-top">
@@ -54,7 +89,7 @@ const LeftSidebar = () => {
         <div className="ls-list">
             {
                 showSearch && user ? 
-                <div className='friends add-user'>
+                <div onClick={addChat} className='friends add-user'>
                     <img src={user.avatar} alt="" />
                     <p>{user.name}</p>
                 </div>  : 
