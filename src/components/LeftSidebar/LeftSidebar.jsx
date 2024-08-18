@@ -8,7 +8,7 @@ import { AppContext } from '../../context/AppContext'
 
 const LeftSidebar = () => {
     const navigate = useNavigate()
-    const {userData} = useContext(AppContext);
+    const {userData,chatData} = useContext(AppContext);
     const [user,setUser] = useState(null);
     const [showSearch,setShowSearch] = useState(false);
 
@@ -21,7 +21,15 @@ const LeftSidebar = () => {
                 const q = query(userRef,where("username","==",input.toLowerCase()));
                 const querySnap = await getDocs(q);
                 if(!querySnap.empty && querySnap.docs[0].data().id !== userData.id){
-                    setUser(querySnap.docs[0].data());
+                    let userExist = false;
+                    chatData.map((user) => {
+                        if(user.rId === querySnap.docs[0].data().id){
+                            userExist = true;
+                        }
+                    })
+                    if(!userExist){
+                        setUser(querySnap.docs[0].data());
+                    }
                 }else{
                     setUser(null);
                 }
@@ -93,12 +101,12 @@ const LeftSidebar = () => {
                     <img src={user.avatar} alt="" />
                     <p>{user.name}</p>
                 </div>  : 
-                Array(12).fill("").map((item,index) => (
+                chatData.map((item,index) => (
                 <div key={index} className="friends">
-                    <img src={assets.profile_img} alt="" />
+                    <img src={item.userData.avatar} alt="" />
                     <div>
-                        <p>Richard Sanford</p>
-                        <span>Hello,How are you?</span>
+                        <p>{item.userData.name}</p>
+                        <span>{item.lastMessage}</span>
                     </div>
                 </div>
             ))
