@@ -2,81 +2,71 @@ import React, { useContext, useEffect, useState } from 'react'
 import "./ChatBox.css"
 import assets from '../../assets/assets'
 import { AppContext } from '../../context/AppContext'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { arrayUnion, doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { toast } from 'react-toastify'
 import { db } from '../../config/firebase'
-import { updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
-
 
 const ChatBox = () => {
-  const {userData,messagesId,chatUser,messages,setMessages} = useContext(AppContext)
-
-  console.log('messagesId:', messagesId);
-  console.log('chatUser:', chatUser);
-  console.log('userData:', userData);
+  const {userData,messageId,chatUser,messages,setMessages} = useContext(AppContext)
 
   const [input,setInput] = useState("");
 
-  const sendMessage = async () => {
-    try {
-      if (input && messagesId) {
-        // Update the messages collection in Firestore
-        await updateDoc(doc(db, 'messages', messagesId), {
-          messages: arrayUnion({
-            sId: userData.id,
-            text: input,
-            createdAt: new Date()
+  const sendMessage = async() => {
+    try{
+      if(input && messageId){
+        await updateDoc(doc(db,'messages',messageId),{
+          messages:arrayUnion({
+            sId:userData.id,
+            text:input,
+            createdAt:new Date()
           })
-        });
-  
-        const userIDs = [chatUser.rId, userData.id];
-        const updatePromises = userIDs.map(async (id) => {
-          const userChatsRef = doc(db, 'chats', id);
+        })
+
+        const userIDs = [chatUser.rId,userData.id];
+
+        userIDs.forEach(async(id) => {
+          const userChatsRef = doc(db,'chats',id);
           const userChatsSnapshot = await getDoc(userChatsRef);
-  
-          if (userChatsSnapshot.exists()) {
+
+          if(userChatsSnapshot.exists()){
             const userChatData = userChatsSnapshot.data();
-            if (userChatData && Array.isArray(userChatData.chatsData)) {
-              // Find the chat by its messagesId
-              const chatIndex = userChatData.chatsData.findIndex((c) => c.messagesId === messagesId);
-  
-              // Ensure chatIndex is valid before attempting to access the array
-              if (chatIndex !== -1) {
-                userChatData.chatsData[chatIndex].lastMessage = input.slice(0, 30);
-                userChatData.chatsData[chatIndex].updatedAt = Date.now();
-                // If the receiver is the user, set messageSeen to false
-                if (userChatData.chatsData[chatIndex].rId === userData.id) {
-                  userChatData.chatsData[chatIndex].messageSeen = false;
-                }
-                // Update the Firestore document with the modified chat data
-                await updateDoc(userChatsRef, {
-                  chatsData: userChatData.chatsData
-                });
-              } else {
-                console.warn(`Chat with messagesId ${messagesId} not found.`);
-              }
+            const  chatIndex = userChatData.chatsData.findIndex((c) => c.messageId === messageId);
+            userChatData.chatsData[chatIndex].lastMessage = input.slice(0,30);
+            userChatData.chatsData[chatIndex].updatedAt = Date.now();
+            if(userChatData.chatsData[chatIndex].rId === userData.id){
+              userChatData.chatsData[chatIndex].messageSeen = false;
             }
+            await updateDoc(userChatsRef,{
+              chatsData:userChatData.chatsData
+            })
           }
-        });
-  
-        await Promise.all(updatePromises); // Ensure all updates are done
-        setInput(""); // Clear the input field after sending the message
+        })
       }
-    } catch (error) {
-      toast.error(error.message);
+    }catch(error){
+      toast.error(error.message)
     }
-  };
-  
+    setInput("")
+  }
+
   
 
-  <div className="chat-input">
-    <input onChange={(e) => setInput(e.target.value)} value={input} type="text" placeholder='Send a message' />
-    <input type="file" id='image' accept='image/png,image/jpeg' hidden />
-    <label htmlFor='image'>
-      <img src={assets.gallery_icon} alt="" />
-    </label>
-    <img src={assets.send_button} alt="" onClick={sendMessage} /> {/* Move onClick here */}
-  </div>
+  useEffect(() => {
+      if (messageId) {
+          const unSub = onSnapshot(doc(db, 'messages', messageId), (res) => {
+              const data = res.data();
+              if (data && Array.isArray(data.messages)) {
+                  setMessages(data.messages.reverse());
+                  console.log(data.messages.reverse());
+              } else {
+                  console.log("No messages found or messages is not an array.");
+                  setMessages([]); // Set an empty array if there are no messages
+              }
+          });
+          return () => {
+              unSub();
+          };
+      }
+  }, [messageId]);
 
 
   return chatUser ? (
@@ -113,15 +103,14 @@ const ChatBox = () => {
           </div>
         </div>
 
-      <div className="chat-input">
-        <input onChange={(e) => setInput(e.target.value)} value={input} type="text" placeholder='Send a message' />
-        <input type="file" id='image' accept='image/png,image/jpeg' hidden />
-        <label htmlFor='image'>
-          <img src={assets.gallery_icon} alt="" />
-        </label>
-        <img src={assets.send_button} alt="" onClick={sendMessage} /> {/* Move onClick here */}
-      </div>
-
+        <div className="chat-input">
+          <input onChange={(e) => setInput(e.target.value)} value={input} type="text" placeholder='Send a message' />
+          <input type="file" id='image' accept='image/png,image/jpeg' hidden />
+          <label htmlFor='image'>
+            <img src={assets.gallery_icon} alt="" />
+          </label>
+          <img onClick={sendMessage} src={assets.send_button} alt="" />
+        </div>
     </div>
   )
   : <div className='chat-welcome'>
